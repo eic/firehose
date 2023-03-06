@@ -13,10 +13,18 @@ jobs:
     container:
       image: minio/mc:latest
     steps:
-    - run: |
+    - name: List new files and post to Mattermost
+      shell: bash
+      run: |
         mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
-        mc find --newer-than ${time} ${root} | grep -v '/CI/' | grep -v '/TEST/' | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count
+        text=$(mc find --newer-than ${time} ${root} | grep -v '/CI/' | grep -v '/TEST/' | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count)
+        if [ -n "$text" ] ; then
+          data="{\"text\":\"Over the past ${time}, files have been added to S3 (number of files, location):\n\`\`\`$text\`\`\`\n(I'm a bot; modify me at ${{github.repositoryUrl}}.)\"}"
+          curl -X POST -H 'Content-type: application/json' --data "$data" ${MATTERMOST_HOOK_URL}/${MATTERMOST_HOOK_SECRET}
+        fi
       env:
         S3_HOST: https://eics3.sdcc.bnl.gov:9000
         S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
         S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
+        MATTERMOST_HOOK_URL: https://eic.cloud.mattermost.com/hooks
+        MATTERMOST_HOOK_SECRET: ${{secrets.MATTERMOST_HOOK_SECRET}}
