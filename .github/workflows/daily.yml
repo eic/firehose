@@ -1,0 +1,22 @@
+on:
+  schedule:
+    - cron:  '0 0 * * *'
+  workflow_dispatch:
+
+env:
+  time: "1d"
+  root: "S3/eictest/EPIC/RECO/"
+
+jobs:
+  update_to_mattermost:
+    runs-on: ubuntu-latest
+    container:
+      image: minio/mc:latest
+    steps:
+    - run: |
+        mc config add host S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
+        mc find --newer-than ${time} ${root} | grep -v '/CI/' | grep -v '/TEST/' | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count
+      env:
+        S3_HOST: https://eics3.sdcc.bnl.gov:9000
+        S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
+        S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
