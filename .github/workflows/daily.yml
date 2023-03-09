@@ -19,7 +19,7 @@ jobs:
         mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
         text=$(mc find --newer-than ${time} ${root} | grep -v '/CI/' | grep -v '/TEST/' | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count)
         if [ -n "$text" ] ; then
-          data="{\"text\":\"Over the past ${time}, files have been added to S3 (number of files, location):\n\`\`\`\n${text}\n\`\`\`\n(I'm a bot; modify me at ${{github.repositoryUrl}}.)\"}"
+          data="{\"text\":\"Over the past ${time}, files have been added to S3 (number of files, location):\n\`\`\`\n${text}\n\`\`\`\n(I'm a bot; modify me at https://github.com/${{github.repository}}.)\"}"
           curl -X POST -H 'Content-type: application/json' --data "$data" ${MATTERMOST_HOOK_URL}/${MATTERMOST_HOOK_SECRET}
         fi
       env:
