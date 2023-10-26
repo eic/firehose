@@ -11,7 +11,7 @@ jobs:
   update_to_mattermost:
     runs-on: ubuntu-latest
     container:
-      image: minio/mc:latest
+      image: minio/mc:RELEASE.2023-10-14T01-57-03Z
     steps:
     - name: List new files and post to Mattermost
       shell: bash
