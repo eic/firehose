@@ -20,6 +20,7 @@ jobs:
         latest_campaign=$(mc ls ${root} | grep -v 'alternative' | grep -v 'main' | tail -n 1 | sed 's/.*[ ]\(.*\)$/\1/')
         text=$(mc find --newer-than ${time} ${root}${latest_campaign} | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count)
         if [ -n "$text" ] ; then
+          which envsubst
           data="{\"text\":\"$(eval echo "$MESSAGE")\"}"
           echo curl -X POST -H 'Content-type: application/json' --data "$data" ${MATTERMOST_HOOK_URL}/${MATTERMOST_HOOK_SECRET}
         fi
