@@ -116,6 +116,8 @@ jobs:
     - counts
     env:
       COUNTS: ${{needs.counts.outputs.counts}}
+    outputs:
+      json: ${{steps.json.outputs.json}}
     steps:
     - name: Print inputs
       id: inputs
@@ -127,6 +129,7 @@ jobs:
       if: ${{ env.COUNTS != '' }}
       run: |
         json="{\"text\":\"Over the past ${TIME}, files have been added to S3 (number of files, location):\n\`\`\`\n${COUNTS}\n\`\`\`\n(I'm a bot; modify me at https://github.com/${{github.repository}}.)\"}"
+        echo $
         # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
         echo "json<<END" >> $GITHUB_OUTPUT
         echo "$json" >> $GITHUB_OUTPUT
@@ -141,3 +144,7 @@ jobs:
         if [ -n "$COUNTS" ] ; then
           curl -X POST -H 'Content-type: application/json' --data "${{steps.json.outputs.json}}" ${MATTERMOST_HOOK_URL}/${MATTERMOST_HOOK_SECRET}
         fi
+    - name: Print outputs
+      id: outputs
+      run: |
+        echo "${{steps.json.outputs.json}}"
