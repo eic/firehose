@@ -7,6 +7,7 @@ on:
 env:
   TIME: "1d"
   ROOT: "S3/eictest/EPIC/RECO/"
+  S3_HOST: https://eics3.sdcc.bnl.gov:9000
 
 jobs:
   campaigns:
@@ -29,14 +30,13 @@ jobs:
         echo "campaigns<<END" >> $GITHUB_OUTPUT
         echo "$campaigns" >> $GITHUB_OUTPUT
         echo "END" >> $GITHUB_OUTPUT
+      env:
+        S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
+        S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
     - name: Print outputs
       id: outputs
       run: |
         echo "${{steps.campaigns.outputs.campaigns}}"
-      env:
-        S3_HOST: https://eics3.sdcc.bnl.gov:9000
-        S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
-        S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
 
   last_campaign:
     runs-on: ubuntu-latest
@@ -90,7 +90,6 @@ jobs:
         echo "$files" >> $GITHUB_OUTPUT
         echo "END" >> $GITHUB_OUTPUT
       env:
-        S3_HOST: https://eics3.sdcc.bnl.gov:9000
         S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
         S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
     - name: Print outputs
@@ -144,6 +143,9 @@ jobs:
         echo "json<<END" >> $GITHUB_OUTPUT
         echo "$json" >> $GITHUB_OUTPUT
         echo "END" >> $GITHUB_OUTPUT
+      env:
+        MATTERMOST_HOOK_URL: https://chat.epic-eic.org/hooks
+        MATTERMOST_HOOK_SECRET: ${{secrets.MATTERMOST_HOOK_SECRET}}
     - name: Post to Mattermost
       if: ${{ github.event_name != 'pull_request' && env.COUNTS != '' }}
       id: post
@@ -151,6 +153,3 @@ jobs:
         if [ -n "$COUNTS" ] ; then
           curl -X POST -H 'Content-type: application/json' --data "${{steps.json.outputs.json}}" ${MATTERMOST_HOOK_URL}/${MATTERMOST_HOOK_SECRET}
         fi
-      env:
-        MATTERMOST_HOOK_URL: https://chat.epic-eic.org/hooks
-        MATTERMOST_HOOK_SECRET: ${{secrets.MATTERMOST_HOOK_SECRET}}
