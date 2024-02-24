@@ -22,7 +22,7 @@ jobs:
       run: |
         mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
         latest_campaign=$(mc ls ${ROOT} | grep -v 'alternative' | grep -v 'main' | tail -n 1 | sed 's/.*[ ]\(.*\)$/\1/')
-        text=$(mc find --newer-than ${TIME} ${ROOT}${latest_campaign} | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count)
+        list=$(mc find --newer-than ${TIME} ${ROOT}${latest_campaign} | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count)
         echo "list=$list" >> $GITHUB_OUTPUT
       env:
         S3_HOST: https://eics3.sdcc.bnl.gov:9000
