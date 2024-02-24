@@ -69,10 +69,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
     - last_campaign
+    if: ${{needs.last_campaign.outputs.last_campaign != ''}}
     env:
       LAST_CAMPAIGN: ${{needs.last_campaign.outputs.last_campaign}}
-    outputs:
-      files: ${{steps.files.outputs.files}}
     container:
       image: minio/mc
     steps:
@@ -85,37 +84,34 @@ jobs:
       shell: bash
       run: |
         mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
-        files=$(mc find --newer-than ${TIME} --print '{}' ${ROOT}${LAST_CAMPAIGN})
-        # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
-        echo "files<<END" >> $GITHUB_OUTPUT
-        echo "$files" >> $GITHUB_OUTPUT
-        echo "END" >> $GITHUB_OUTPUT
+        mc find --newer-than ${TIME} --print '{}' ${ROOT}${LAST_CAMPAIGN} | tee -a files.txt
       env:
         S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
         S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
-    - name: Print outputs
-      id: outputs
-      run: |
-        echo "${{steps.files.outputs.files}}"
+    - name: Upload file listing
+      id: upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: files.txt
+        path: files.txt
 
   counts:
     runs-on: ubuntu-latest
     needs:
     - files
-    env:
-      FILES: ${{needs.files.outputs.files}}
     outputs:
       counts: ${{steps.counts.outputs.counts}}
     steps:
-    - name: Print inputs
-      id: inputs
-      run: |
-        echo "$FILES"
+    - name: Download file listing
+      id: download
+      uses: actions/download-artifact@v4
+      with:
+        name: files.txt
     - name: Determine file counts
       id: counts
       shell: bash
       run: |
-        counts=$(echo "$FILES" | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count)
+        counts=$(cat files.txt | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count)
         echo "counts<<END" >> $GITHUB_OUTPUT
         echo "$counts" >> $GITHUB_OUTPUT
         echo "END" >> $GITHUB_OUTPUT
