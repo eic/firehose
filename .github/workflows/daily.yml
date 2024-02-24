@@ -9,47 +9,147 @@ env:
   ROOT: "S3/eictest/EPIC/RECO/"
 
 jobs:
-  list:
+  campaigns:
     runs-on: ubuntu-latest
+    outputs:
+      campaigns: ${{steps.campaigns.outputs.campaigns}}
     container:
       image: minio/mc
-    outputs:
-      list: ${{ steps.list.outputs.list }}
     steps:
     - name: List new files
       id: list
       shell: bash
       run: |
         mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
-        latest_campaign=$(mc ls ${ROOT} | grep -v 'alternative' | grep -v 'main' | tail -n 1 | sed 's/.*[ ]\(.*\)$/\1/')
-        list=$(mc find --newer-than ${TIME} ${ROOT}${latest_campaign} | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count)
+        # FIXME the following lists way too many entries and takes too long
+        #campaigns=$(mc find --maxdepth=1 --print='{}' --ignore "*main*" --ignore "*alternative*" ${ROOT} | uniq | sort | uniq)
+        # Alternative: we use a regular listing
+        campaigns=$(mc ls ${ROOT})
         # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
-        echo "list<<END" >> $GITHUB_OUTPUT
-        echo "$list" >> $GITHUB_OUTPUT
+        echo "campaigns<<END" >> $GITHUB_OUTPUT
+        echo "$campaigns" >> $GITHUB_OUTPUT
+        echo "END" >> $GITHUB_OUTPUT
+    - name: Print outputs
+      id: outputs
+      run: |
+        echo "${{steps.campaigns.outputs.campaigns}}"
+      env:
+        S3_HOST: https://eics3.sdcc.bnl.gov:9000
+        S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
+        S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
+
+  last_campaign:
+    runs-on: ubuntu-latest
+    needs:
+    - campaigns
+    env:
+      CAMPAIGNS: ${{needs.campaigns.outputs.campaigns}}
+    outputs:
+      last_campaign: ${{steps.last_campaign.outputs.last_campaign}}
+    steps:
+    - name: Print inputs
+      id: inputs
+      run: |
+        echo "$CAMPAIGNS"
+    - name: Determine last campaign
+      id: last_campaign
+      shell: bash
+      run: |
+        last_campaign=$(echo "$CAMPAIGNS" | grep -v 'alternative' | grep -v 'main' | tail -n 1 | sed 's/.*[ ]\(.*\)$/\1/')
+        echo "last_campaign<<END" >> $GITHUB_OUTPUT
+        echo "$last_campaign" >> $GITHUB_OUTPUT
+        echo "END" >> $GITHUB_OUTPUT
+    - name: Print outputs
+      id: outputs
+      run: |
+        echo "${{steps.last_campaign.outputs.last_campaign}}"
+
+  files:
+    runs-on: ubuntu-latest
+    needs:
+    - last_campaign
+    env:
+      LAST_CAMPAIGN: ${{needs.last_campaign.outputs.last_campaign}}
+    outputs:
+      files: ${{steps.files.outputs.files}}
+    container:
+      image: minio/mc
+    steps:
+    - name: Print inputs
+      id: inputs
+      run: |
+        echo "$LAST_CAMPAIGN"
+    - name: List new files
+      id: files
+      shell: bash
+      run: |
+        mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
+        files=$(mc find --newer-than ${TIME} --print '{}' ${ROOT}${LAST_CAMPAIGN})
+        # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
+        echo "files<<END" >> $GITHUB_OUTPUT
+        echo "$files" >> $GITHUB_OUTPUT
         echo "END" >> $GITHUB_OUTPUT
       env:
         S3_HOST: https://eics3.sdcc.bnl.gov:9000
         S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
         S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
- 
+    - name: Print outputs
+      id: outputs
+      run: |
+        echo "${{steps.files.outputs.files}}"
+
+  counts:
+    runs-on: ubuntu-latest
+    needs:
+    - files
+    env:
+      FILES: ${{needs.files.outputs.files}}
+    outputs:
+      counts: ${{steps.counts.outputs.counts}}
+    steps:
+    - name: Print inputs
+      id: inputs
+      run: |
+        echo "$FILES"
+    - name: Determine file counts
+      id: counts
+      shell: bash
+      run: |
+        counts=$(echo "$FILES" | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count)
+        echo "counts<<END" >> $GITHUB_OUTPUT
+        echo "$counts" >> $GITHUB_OUTPUT
+        echo "END" >> $GITHUB_OUTPUT
+    - name: Print outputs
+      id: outputs
+      run: |
+        echo "${{steps.counts.outputs.counts}}"
+
   post:
     runs-on: ubuntu-latest
     needs:
-    - list
+    - counts
     env:
-      LIST: ${{needs.list.outputs.list}}
+      COUNTS: ${{needs.counts.outputs.counts}}
     steps:
-    - name: Print output text
-      id: print
+    - name: Print inputs
+      id: inputs
+      if: ${{ env.COUNTS != '' }}
       run: |
-        echo "$LIST"
+        echo "$COUNTS"
+    - name: Create json
+      id: json
+      if: ${{ env.COUNTS != '' }}
+      run: |
+        json="{\"text\":\"Over the past ${TIME}, files have been added to S3 (number of files, location):\n\`\`\`\n${COUNTS}\n\`\`\`\n(I'm a bot; modify me at https://github.com/${{github.repository}}.)\"}"
+        echo "json<<END" >> $GITHUB_OUTPUT
+        echo "$json" >> $GITHUB_OUTPUT
+        echo "END" >> $GITHUB_OUTPUT
     - name: Post to Mattermost
-      if: ${{ github.event_name != 'pull_request' }}
+      if: ${{ github.event_name != 'pull_request' && env.COUNTS != '' }}
       id: post
       run: |
-        if [ -n "$LIST" ] ; then
-          data="{\"text\":\"Over the past ${TIME}, files have been added to S3 (number of files, location):\n\`\`\`\n${LIST}\n\`\`\`\n(I'm a bot; modify me at https://github.com/${{github.repository}}.)\"}"
-          curl -X POST -H 'Content-type: application/json' --data "$data" ${MATTERMOST_HOOK_URL}/${MATTERMOST_HOOK_SECRET}
+        if [ -n "$COUNTS" ] ; then
+          curl -X POST -H 'Content-type: application/json' --data "${{steps.json.outputs.json}}" ${MATTERMOST_HOOK_URL}/${MATTERMOST_HOOK_SECRET}
         fi
       env:
         MATTERMOST_HOOK_URL: https://chat.epic-eic.org/hooks
