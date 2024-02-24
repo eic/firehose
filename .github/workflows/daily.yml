@@ -2,30 +2,53 @@ on:
   schedule:
     - cron:  '0 0 * * *'
   workflow_dispatch:
+  pull_request:
 
 env:
-  time: "1d"
-  root: "S3/eictest/EPIC/RECO/"
+  TIME: "1d"
+  ROOT: "S3/eictest/EPIC/RECO/"
 
 jobs:
-  update_to_mattermost:
+  list:
     runs-on: ubuntu-latest
     container:
       image: minio/mc:RELEASE.2023-10-14T01-57-03Z
+    outputs:
+      list: ${{ steps.list.outputs.list }}
     steps:
-    - name: List new files and post to Mattermost
+    - name: List new files
+      id: list
       shell: bash
       run: |
         mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
-        latest_campaign=$(mc ls ${root} | grep -v 'alternative' | grep -v 'main' | tail -n 1 | sed 's/.*[ ]\(.*\)$/\1/')
-        text=$(mc find --newer-than ${time} ${root}${latest_campaign} | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count)
-        if [ -n "$text" ] ; then
-          data="{\"text\":\"Over the past ${time}, files have been added to S3 (number of files, location):\n\`\`\`\n${text}\n\`\`\`\n(I'm a bot; modify me at https://github.com/${{github.repository}}.)\"}"
-          curl -X POST -H 'Content-type: application/json' --data "$data" ${MATTERMOST_HOOK_URL}/${MATTERMOST_HOOK_SECRET}
-        fi
+        latest_campaign=$(mc ls ${ROOT} | grep -v 'alternative' | grep -v 'main' | tail -n 1 | sed 's/.*[ ]\(.*\)$/\1/')
+        text=$(mc find --newer-than ${TIME} ${ROOT}${latest_campaign} | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count)
+        echo "list=$list" >> $GITHUB_OUTPUT
       env:
         S3_HOST: https://eics3.sdcc.bnl.gov:9000
         S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
         S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
+ 
+  post:
+    runs-on: ubuntu-latest
+    needs:
+    - list
+    env:
+      LIST: ${{needs.list.outputs.list}}
+    steps:
+    - name: Print output text
+      id: print
+      run: |
+        echo "$list"
+    - name: Post to Mattermost
+      if: ${{ github.event_name != 'pull_request' }}
+      id: post
+      run: |
+        if [ -n "$list" ] ; then
+          data="{\"text\":\"Over the past ${TIME}, files have been added to S3 (number of files, location):\n\`\`\`\n${LIST}\n\`\`\`\n(I'm a bot; modify me at https://github.com/${{github.repository}}.)\"}"
+          curl -X POST -H 'Content-type: application/json' --data "$data" ${MATTERMOST_HOOK_URL}/${MATTERMOST_HOOK_SECRET}
+        fi
+      env:
         MATTERMOST_HOOK_URL: https://chat.epic-eic.org/hooks
         MATTERMOST_HOOK_SECRET: ${{secrets.MATTERMOST_HOOK_SECRET}}
+  
