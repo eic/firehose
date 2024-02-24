@@ -20,8 +20,8 @@ jobs:
         latest_campaign=$(mc ls ${root} | grep -v 'alternative' | grep -v 'main' | tail -n 1 | sed 's/.*[ ]\(.*\)$/\1/')
         text=$(mc find --newer-than ${time} ${root}${latest_campaign} | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count)
         if [ -n "$text" ] ; then
-          data="{\"text\":\"Over the past ${time}, files have been added to S3 (number of files, location):\n\`\`\`\n${text}\n\`\`\`\n(I'm a bot; modify me at https://github.com/${{github.repository}}.)\"}"
-          curl -X POST -H 'Content-type: application/json' --data "$data" ${MATTERMOST_HOOK_URL}/${MATTERMOST_HOOK_SECRET}
+          data="{\"text\":\"$(eval echo $MESSAGE\"}"
+          echo curl -X POST -H 'Content-type: application/json' --data "$data" ${MATTERMOST_HOOK_URL}/${MATTERMOST_HOOK_SECRET}
         fi
       env:
         S3_HOST: https://eics3.sdcc.bnl.gov:9000
@@ -29,3 +29,9 @@ jobs:
         S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
         MATTERMOST_HOOK_URL: https://chat.epic-eic.org/hooks
         MATTERMOST_HOOK_SECRET: ${{secrets.MATTERMOST_HOOK_SECRET}}
+        MESSAGE: |
+          Over the past ${time}, files have been added to S3 (number of files, location):
+          ```
+          ${text}
+          ```
+          (I'm a bot; modify me at https://github.com/${{github.repository}}.)
