@@ -42,16 +42,15 @@ jobs:
     - name: Print output text
       id: print
       run: |
-        echo "$list"
+        echo "$LIST"
     - name: Post to Mattermost
       if: ${{ github.event_name != 'pull_request' }}
       id: post
       run: |
-        if [ -n "$list" ] ; then
+        if [ -n "$LIST" ] ; then
           data="{\"text\":\"Over the past ${TIME}, files have been added to S3 (number of files, location):\n\`\`\`\n${LIST}\n\`\`\`\n(I'm a bot; modify me at https://github.com/${{github.repository}}.)\"}"
           curl -X POST -H 'Content-type: application/json' --data "$data" ${MATTERMOST_HOOK_URL}/${MATTERMOST_HOOK_SECRET}
         fi
       env:
         MATTERMOST_HOOK_URL: https://chat.epic-eic.org/hooks
         MATTERMOST_HOOK_SECRET: ${{secrets.MATTERMOST_HOOK_SECRET}}
-  
