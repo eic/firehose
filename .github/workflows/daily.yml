@@ -17,8 +17,8 @@ jobs:
     container:
       image: minio/mc
     steps:
-    - name: List new files
-      id: list
+    - name: List campaigns
+      id: campaigns
       shell: bash
       run: |
         mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
