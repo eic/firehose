@@ -57,6 +57,7 @@ jobs:
       shell: bash
       run: |
         last_campaign=$(echo "$CAMPAIGNS" | grep -v 'alternative' | grep -v 'main' | tail -n 1 | sed 's/.*[ ]\(.*\)$/\1/')
+        # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
         echo "last_campaign<<END" >> $GITHUB_OUTPUT
         echo "$last_campaign" >> $GITHUB_OUTPUT
         echo "END" >> $GITHUB_OUTPUT
@@ -65,13 +66,15 @@ jobs:
       run: |
         echo "${{steps.last_campaign.outputs.last_campaign}}"
 
-  files:
+  counts:
     runs-on: ubuntu-latest
     needs:
     - last_campaign
     if: ${{needs.last_campaign.outputs.last_campaign != ''}}
     env:
       LAST_CAMPAIGN: ${{needs.last_campaign.outputs.last_campaign}}
+    outputs:
+      counts: ${{steps.counts.outputs.counts}}
     container:
       image: minio/mc
     steps:
@@ -79,42 +82,29 @@ jobs:
       id: inputs
       run: |
         echo "$LAST_CAMPAIGN"
-    - name: List new files
-      id: files
-      shell: bash
-      run: |
-        mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
-        mc find --newer-than ${TIME} --print '{}' ${ROOT}${LAST_CAMPAIGN} | tee -a files.txt
-      env:
-        S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
-        S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
-    - name: Upload file listing
-      id: upload
-      uses: actions/upload-artifact@v4
-      with:
-        name: files.txt
-        path: files.txt
-
-  counts:
-    runs-on: ubuntu-latest
-    needs:
-    - files
-    outputs:
-      counts: ${{steps.counts.outputs.counts}}
-    steps:
-    - name: Download file listing
-      id: download
-      uses: actions/download-artifact@v4
-      with:
-        name: files.txt
     - name: Determine file counts
       id: counts
       shell: bash
       run: |
-        counts=$(cat files.txt | sed 's|S3/eictest/EPIC/\(.*\)/[^/]*/[^/]*|\1|' | sort | uniq --count)
+        mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
+        mc find --newer-than ${TIME} --print '{}' ${ROOT}${LAST_CAMPAIGN} | tee -a files.txt
+        # keep only the RECO/.../ path up to parent of directory with files
+        cat files.txt | while read file ; do
+          if [[ $file =~ S3/eictest/EPIC/(.*)/[^/]*/[^/]* ]] ; then
+            echo ${BASH_REMATCH[1]}
+          fi
+        done | tee -a files-stripped.txt
+        # sort files, count, sort by count (key 1)
+        cat files-stripped.txt | sort | uniq --count | tee -a counts.txt
+        # take highest 10, sort by path (key 2)
+        cat counts.txt | sort -k1 -n | tail -n10 | sort -k2 | tee -a counts-stripped.txt
+        # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
         echo "counts<<END" >> $GITHUB_OUTPUT
-        echo "$counts" >> $GITHUB_OUTPUT
+        cat counts-stripped.txt >> $GITHUB_OUTPUT
         echo "END" >> $GITHUB_OUTPUT
+      env:
+        S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
+        S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
     - name: Print outputs
       id: outputs
       run: |
@@ -137,6 +127,7 @@ jobs:
       if: ${{ env.COUNTS != '' }}
       run: |
         json="{\"text\":\"Over the past ${TIME}, files have been added to S3 (number of files, location):\n\`\`\`\n${COUNTS}\n\`\`\`\n(I'm a bot; modify me at https://github.com/${{github.repository}}.)\"}"
+        # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
         echo "json<<END" >> $GITHUB_OUTPUT
         echo "$json" >> $GITHUB_OUTPUT
         echo "END" >> $GITHUB_OUTPUT
