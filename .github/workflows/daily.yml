@@ -120,6 +120,7 @@ jobs:
     outputs:
       json: ${{steps.json.outputs.json}}
     steps:
+    - uses: actions/checkout@v4
     - name: Print inputs
       id: inputs
       run: |
@@ -127,8 +128,8 @@ jobs:
     - name: Create json
       id: json
       run: |
-        which envsubst
-        echo "{\"text\":\"Over the past ${TIME}, files have been added to S3 (number of files, location):\n\`\`\`\n${COUNTS}\n\`\`\`\n(I'm a bot; modify me at https://github.com/${{github.repository}}.)\"}" | tee data.json
+        cat daily.md | envsubst > daily-envsubst.md
+        echo "{\"text\":\"$(<daily-envsubst.md)\"}" | tee data.json
       env:
         MATTERMOST_HOOK_URL: https://chat.epic-eic.org/hooks
         MATTERMOST_HOOK_SECRET: ${{secrets.MATTERMOST_HOOK_SECRET}}
