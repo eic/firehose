@@ -6,8 +6,10 @@ on:
 
 env:
   TIME: "1d"
-  ROOT: "S3/eictest/EPIC/RECO/"
   S3_HOST: https://eics3.sdcc.bnl.gov:9000
+  ROOT: "S3/eictest/EPIC/RECO/"
+  RECO: "/work/eic2/EPIC/RECO"
+  XROOTD_HOST: root://dtn-eic.jlab.org
 
 jobs:
   campaigns:
@@ -15,17 +17,13 @@ jobs:
     outputs:
       campaigns: ${{steps.campaigns.outputs.campaigns}}
     container:
-      image: minio/mc
+      image: rucio/xrootd
     steps:
     - name: List campaigns
       id: campaigns
       shell: bash
       run: |
-        mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
-        # FIXME the following lists way too many entries and takes too long
-        #campaigns=$(mc find --maxdepth=1 --print='{}' --ignore "*main*" --ignore "*alternative*" ${ROOT} | uniq | sort | uniq)
-        # Alternative: we use a regular listing
-        campaigns=$(mc ls ${ROOT})
+        campaigns=$(xrdfs ${XROOTD_HOST} ls ${RECO} | awk -F'/' '{print $NF}' | sort -n)
         # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
         echo "campaigns<<END" >> $GITHUB_OUTPUT
         echo "$campaigns" >> $GITHUB_OUTPUT
