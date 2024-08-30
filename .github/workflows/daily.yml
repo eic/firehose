@@ -83,18 +83,13 @@ jobs:
         one_day_ago=$(date -d "1 day ago" +%s)
 
         # List all files with details
-        xrdfs $XROOTD_HOST ls -l -R $ROOT | while read -r line; do
-          # Extract the date and path from the line
-          file_date=$(echo $line | awk '{print $5" "$6}')
-          file_path=$(echo $line | awk '{print $7}')
-
+        xrdfs $XROOTD_HOST ls -l -R $ROOT | while read -r perm user group size date time file; do
           # Convert file date to seconds since epoch
-          file_date_seconds=$(date -d "$file_date" +%s)
-
+          file_date_seconds=$(date -d "$date $time" +%s)
           # Check if the file was created within the last 1 day
           if [ $file_date_seconds -ge $one_day_ago ]; then
             # keep only the RECO/.../ path up to parent of directory with files
-            if [[ $file_path =~ /work/eic2/EPIC/(.*)/[^/]*/[^/]* ]] ; then
+            if [[ $file =~ /work/eic2/EPIC/(.*)/[^/]*/[^/]* ]] ; then
               echo ${BASH_REMATCH[1]}
             fi
           fi
