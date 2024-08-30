@@ -97,16 +97,13 @@ jobs:
 
           # Check if the file was created within the last 1 day
           if [ $file_date_seconds -ge $one_day_ago ]; then
-            echo $file_path
+            # keep only the RECO/.../ path up to parent of directory with files
+            if [[ $file_path =~ /work/eic2/EPIC/(.*)/[^/]*/[^/]* ]] ; then
+              echo ${BASH_REMATCH[1]}
+            fi
           fi
-        done > files.txt
-
-        # keep only the RECO/.../ path up to parent of directory with files
-        cat files.txt | while read file ; do
-          if [[ $file =~ /work/eic2/EPIC/(.*)/[^/]*/[^/]* ]] ; then
-            echo ${BASH_REMATCH[1]}
-          fi
-        done | tee -a files-stripped.txt
+        done > files-stripped.txt
+        
         # sort files, count, sort by count (key 1)
         cat files-stripped.txt | sort | uniq --count | tee -a counts.txt
         # take highest 10, sort by path (key 2)
