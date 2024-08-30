@@ -89,7 +89,7 @@ jobs:
           # Check if the file was created within the last 1 day
           if [ $file_date_seconds -ge $one_day_ago ]; then
             # keep only the RECO/.../ path up to parent of directory with files
-            if [[ $file =~ /work/eic2/EPIC/(.*)/[^/]*/[^/]* ]] ; then
+            if [[ $file =~ ${ROOT}/[^/]*/[^/]* ]] ; then
               echo ${BASH_REMATCH[1]}
             fi
           fi
