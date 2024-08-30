@@ -6,9 +6,7 @@ on:
 
 env:
   TIME: "1d"
-  S3_HOST: https://eics3.sdcc.bnl.gov:9000
-  ROOT: "S3/eictest/EPIC/RECO/"
-  RECO: "/work/eic2/EPIC/RECO"
+  ROOT: "/work/eic2/EPIC/RECO"
   XROOTD_HOST: root://dtn-eic.jlab.org
 
 jobs:
@@ -23,7 +21,7 @@ jobs:
       id: campaigns
       shell: bash
       run: |
-        campaigns=$(xrdfs ${XROOTD_HOST} ls ${RECO} | awk -F'/' '{print $NF}' | sort -n)
+        campaigns=$(xrdfs ${XROOTD_HOST} ls ${ROOT} | awk -F'/' '{print $NF}' | sort -n)
         # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
         echo "campaigns<<END" >> $GITHUB_OUTPUT
         echo "$campaigns" >> $GITHUB_OUTPUT
@@ -74,7 +72,7 @@ jobs:
     outputs:
       counts: ${{steps.counts.outputs.counts}}
     container:
-      image: minio/mc
+      image: rucio/xrootd
     steps:
     - name: Print inputs
       id: inputs
@@ -84,11 +82,28 @@ jobs:
       id: counts
       shell: bash
       run: |
-        mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
-        mc find --newer-than ${TIME} --print '{}' ${ROOT}${LAST_CAMPAIGN} | tee -a files.txt
+        # Get the current date and the date 1 day ago
+        current_date=$(date +%s)
+        one_day_ago=$(date -d "1 day ago" +%s)
+
+        # List all files with details
+        xrdfs $XROOTD_HOST ls -l -R $ROOT | while read -r line; do
+          # Extract the date and path from the line
+          file_date=$(echo $line | awk '{print $5" "$6}')
+          file_path=$(echo $line | awk '{print $7}')
+
+          # Convert file date to seconds since epoch
+          file_date_seconds=$(date -d "$file_date" +%s)
+
+          # Check if the file was created within the last 1 day
+          if [ $file_date_seconds -ge $one_day_ago ]; then
+            echo $file_path
+          fi
+        done > files.txt
+
         # keep only the RECO/.../ path up to parent of directory with files
         cat files.txt | while read file ; do
-          if [[ $file =~ S3/eictest/EPIC/(.*)/[^/]*/[^/]* ]] ; then
+          if [[ $file =~ /work/eic2/EPIC/(.*)/[^/]*/[^/]* ]] ; then
             echo ${BASH_REMATCH[1]}
           fi
         done | tee -a files-stripped.txt
