@@ -5,7 +5,6 @@ on:
   pull_request:
 
 env:
-  TIME: "1d"
   ROOT: "/work/eic2/EPIC/RECO"
   XROOTD_HOST: root://dtn-eic.jlab.org
 
@@ -26,9 +25,6 @@ jobs:
         echo "campaigns<<END" >> $GITHUB_OUTPUT
         echo "$campaigns" >> $GITHUB_OUTPUT
         echo "END" >> $GITHUB_OUTPUT
-      env:
-        S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
-        S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
     - name: Print outputs
       id: outputs
       run: |
@@ -112,9 +108,6 @@ jobs:
         echo "counts<<END" >> $GITHUB_OUTPUT
         cat counts-stripped.txt >> $GITHUB_OUTPUT
         echo "END" >> $GITHUB_OUTPUT
-      env:
-        S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
-        S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
     - name: Print outputs
       id: outputs
       run: |
