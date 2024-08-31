@@ -5,9 +5,8 @@ on:
   pull_request:
 
 env:
-  TIME: "1d"
-  ROOT: "S3/eictest/EPIC/RECO/"
-  S3_HOST: https://eics3.sdcc.bnl.gov:9000
+  ROOT: "/work/eic2/EPIC/RECO"
+  XROOTD_HOST: root://dtn-eic.jlab.org
 
 jobs:
   campaigns:
@@ -15,24 +14,17 @@ jobs:
     outputs:
       campaigns: ${{steps.campaigns.outputs.campaigns}}
     container:
-      image: minio/mc
+      image: rucio/xrootd
     steps:
     - name: List campaigns
       id: campaigns
       shell: bash
       run: |
-        mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
-        # FIXME the following lists way too many entries and takes too long
-        #campaigns=$(mc find --maxdepth=1 --print='{}' --ignore "*main*" --ignore "*alternative*" ${ROOT} | uniq | sort | uniq)
-        # Alternative: we use a regular listing
-        campaigns=$(mc ls ${ROOT})
+        campaigns=$(xrdfs ${XROOTD_HOST} ls ${ROOT} | awk -F'/' '{print $NF}' | sort -n)
         # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
         echo "campaigns<<END" >> $GITHUB_OUTPUT
         echo "$campaigns" >> $GITHUB_OUTPUT
         echo "END" >> $GITHUB_OUTPUT
-      env:
-        S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
-        S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
     - name: Print outputs
       id: outputs
       run: |
@@ -76,7 +68,7 @@ jobs:
     outputs:
       counts: ${{steps.counts.outputs.counts}}
     container:
-      image: minio/mc
+      image: rucio/xrootd
     steps:
     - name: Print inputs
       id: inputs
@@ -86,14 +78,23 @@ jobs:
       id: counts
       shell: bash
       run: |
-        mc config host add S3 ${S3_HOST} ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
-        mc find --newer-than ${TIME} --print '{}' ${ROOT}${LAST_CAMPAIGN} | tee -a files.txt
-        # keep only the RECO/.../ path up to parent of directory with files
-        cat files.txt | while read file ; do
-          if [[ $file =~ S3/eictest/EPIC/(.*)/[^/]*/[^/]* ]] ; then
-            echo ${BASH_REMATCH[1]}
+        # Get the current date and the date 1 day ago
+        current_date=$(date +%s)
+        one_day_ago=$(date -d "1 day ago" +%s)
+
+        # List all files with details
+        xrdfs $XROOTD_HOST ls -l -R $ROOT | while read -r perm user group size date time file; do
+          # Convert file date to seconds since epoch
+          file_date_seconds=$(date -d "$date $time" +%s)
+          # Check if the file was created within the last 1 day
+          if [ $file_date_seconds -ge $one_day_ago ]; then
+            # keep only the RECO/.../ path up to parent of directory with files
+            if [[ $file =~ ${ROOT}/[^/]*/[^/]* ]] ; then
+              echo ${BASH_REMATCH[1]}
+            fi
           fi
-        done | tee -a files-stripped.txt
+        done > files-stripped.txt
+        
         # sort files, count, sort by count (key 1)
         cat files-stripped.txt | sort | uniq --count | tee -a counts.txt
         # take highest 10, sort by path (key 2)
@@ -102,9 +103,6 @@ jobs:
         echo "counts<<END" >> $GITHUB_OUTPUT
         cat counts-stripped.txt >> $GITHUB_OUTPUT
         echo "END" >> $GITHUB_OUTPUT
-      env:
-        S3_ACCESS_KEY: ${{secrets.S3_ACCESS_KEY}}
-        S3_SECRET_KEY: ${{secrets.S3_SECRET_KEY}}
     - name: Print outputs
       id: outputs
       run: |
