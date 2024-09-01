@@ -106,6 +106,8 @@ jobs:
     if: ${{needs.counts.outputs.counts != ''}}
     env:
       COUNTS: ${{needs.counts.outputs.counts}}
+      MATTERMOST_HOOK_URL: https://chat.epic-eic.org/hooks
+      MATTERMOST_HOOK_SECRET: ${{secrets.MATTERMOST_HOOK_SECRET}}
     outputs:
       json: ${{steps.json.outputs.json}}
     steps:
@@ -119,9 +121,6 @@ jobs:
       run: |
         cat daily.md | envsubst > daily-envsubst.md
         echo "{\"text\":\"$(<daily-envsubst.md)\"}" | tee data.json
-      env:
-        MATTERMOST_HOOK_URL: https://chat.epic-eic.org/hooks
-        MATTERMOST_HOOK_SECRET: ${{secrets.MATTERMOST_HOOK_SECRET}}
     - name: Post to Mattermost
       if: ${{github.event_name != 'pull_request'}}
       id: post
