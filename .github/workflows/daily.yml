@@ -5,6 +5,7 @@ on:
   pull_request:
 
 env:
+  TIME: "1 day"
   ROOT: "/work/eic2/EPIC/RECO"
   XROOTD_HOST: root://dtn-eic.jlab.org
 
@@ -80,7 +81,7 @@ jobs:
       run: |
         # Get the current date and the date 1 day ago
         current_date=$(date +%s)
-        one_day_ago=$(date -d "1 day ago" +%s)
+        one_day_ago=$(date -d "${TIME} ago" +%s)
 
         # List all files with details
         xrdfs $XROOTD_HOST ls -l -R $ROOT | while read -r perm user group size date time file; do
