@@ -84,7 +84,7 @@ jobs:
         one_day_ago=$(date -d "${TIME} ago" +%s)
 
         # List all files with details
-        xrdfs $XROOTD_HOST ls -l -R $ROOT/24.08.1 | awk -v one_day_ago=$(date -d '1 day ago' +%s) '{ "date -d \"" $5 " " $6 "\" +%s" | getline file_date_seconds; close("date -d \"" $5 " " $6 "\" +%s"); if (file_date_seconds >= one_day_ago) print $7 }' > files.txt
+        xrdfs $XROOTD_HOST ls -l -R $ROOT/${LAST_CAMPAIGN} | awk -v one_day_ago=$(date -d '1 day ago' +%s) '{ "date -d \"" $5 " " $6 "\" +%s" | getline file_date_seconds; close("date -d \"" $5 " " $6 "\" +%s"); if (file_date_seconds >= one_day_ago) print $7 }' > files.txt
  
         # strip names, sort files, count, sort by count (key 1)
         cat files.txt | sed "s%${ROOT}/%%g" | awk 'BEGIN{FS=OFS="/"}{NF--;print}' | sort | uniq --count | tee -a counts.txt
