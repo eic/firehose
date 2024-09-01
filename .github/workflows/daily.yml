@@ -84,20 +84,10 @@ jobs:
         one_day_ago=$(date -d "${TIME} ago" +%s)
 
         # List all files with details
-        xrdfs $XROOTD_HOST ls -l -R $ROOT | while read -r perm user group size date time file; do
-          # Convert file date to seconds since epoch
-          file_date_seconds=$(date -d "$date $time" +%s)
-          # Check if the file was created within the last 1 day
-          if [ $file_date_seconds -ge $one_day_ago ]; then
-            # keep only the RECO/.../ path up to parent of directory with files
-            if [[ $file =~ ${ROOT}/[^/]*/[^/]* ]] ; then
-              echo ${BASH_REMATCH[1]}
-            fi
-          fi
-        done > files-stripped.txt
-        
-        # sort files, count, sort by count (key 1)
-        cat files-stripped.txt | sort | uniq --count | tee -a counts.txt
+        xrdfs $XROOTD_HOST ls -l -R $ROOT/24.08.1 | awk -v one_day_ago=$(date -d '1 day ago' +%s) '{ "date -d \"" $5 " " $6 "\" +%s" | getline file_date_seconds; close("date -d \"" $5 " " $6 "\" +%s"); if (file_date_seconds >= one_day_ago) print $7 }' > files.txt
+ 
+        # strip names, sort files, count, sort by count (key 1)
+        cat files.txt | sed "s%${ROOT}/%%g" | awk 'BEGIN{FS=OFS="/"}{NF--;print}' | sort | uniq --count | tee -a counts.txt
         # take highest 10, sort by path (key 2)
         cat counts.txt | sort -k1 -n | tail -n10 | sort -k2 | tee -a counts-stripped.txt
         # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
