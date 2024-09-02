@@ -8,6 +8,7 @@ env:
   TIME: "1 day"
   ROOT: "/work/eic2/EPIC/RECO"
   XROOTD_HOST: root://dtn-eic.jlab.org
+  REPOSITORY: "${{github.repository}}"
 
 jobs:
   campaigns:
