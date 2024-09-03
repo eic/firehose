@@ -90,7 +90,7 @@ jobs:
         # strip names, sort files, count, sort by count (key 1)
         cat files.txt | sed "s%${ROOT}/%%g" | awk 'BEGIN{FS=OFS="/"}{NF--;print}' | sort | uniq --count | tee -a counts.txt
         # take highest 10, sort by path (key 2)
-        cat counts.txt | sort -k1 -n | tail -n10 | sort -k2 | sed 's/$/\n/' | tee -a counts-stripped.txt
+        cat counts.txt | sort -k1 -n | tail -n10 | sort -k2 | sed 's/$/\\n/' | tee -a counts-stripped.txt
         # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
         echo "counts<<END" >> $GITHUB_OUTPUT
         cat counts-stripped.txt >> $GITHUB_OUTPUT
