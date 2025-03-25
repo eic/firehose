@@ -16,7 +16,7 @@ jobs:
     outputs:
       campaigns: ${{steps.campaigns.outputs.campaigns}}
     container:
-      image: rucio/test-xrootd
+      image: opensciencegrid/xrootd-standalone
     steps:
     - name: List campaigns
       id: campaigns
